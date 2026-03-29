@@ -38,11 +38,14 @@ Smart contract namespace: **`LSAgriFlow_Supply_v1`**
 |---|---|
 | Frontend | React 18 + React Router 6 |
 | Styling | Custom CSS design system (no framework) |
+| **Blockchain** | **Hardhat + ethers.js v6 + MetaMask** |
+| **Smart Contracts** | **Solidity 0.8.19 (Sepolia Testnet)** |
 | Blockchain simulation | crypto-js SHA-256, chain-linked transactions |
 | QR Codes | qrcode.react |
 | Charts | Recharts |
-| Persistence | Browser localStorage |
+| Persistence | Browser localStorage + **Ethereum Blockchain** |
 | Build tool | Vite 5 |
+| **Web3 Integration** | **Web3Manager Class + WalletConnect** |
 
 ---
 
@@ -50,6 +53,8 @@ Smart contract namespace: **`LSAgriFlow_Supply_v1`**
 
 - **Node.js** v18 or higher → https://nodejs.org
 - **npm** v9 or higher (bundled with Node.js)
+- **MetaMask** browser extension → https://metamask.io
+- **Sepolia Testnet ETH** (free from https://sepoliafaucet.com)
 
 Verify:
 ```bash
@@ -76,7 +81,28 @@ npm run dev
 
 ---
 
-### Any terminal
+## Environment Setup
+
+Create `.env` file in project root:
+
+```env
+VITE_CONTRACT_ADDRESS=0xYourDeployedContractAddress
+VITE_SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YourProjectId
+```
+
+**Note**: Variables must use `VITE_` prefix for Vite compatibility.
+
+---
+
+## Smart Contract Deployment
+
+Deploy to Sepolia testnet:
+
+```bash
+npx hardhat run scripts/deploy.js --network sepolia
+```
+
+Copy the deployed contract address to your `.env` file.
 
 ```bash
 cd ls-agriflow        # navigate to project root
@@ -125,6 +151,13 @@ All accounts use **PIN: 1234**
 
 ```
 ls-agriflow/
+├── contracts/
+│   └── LSAgriFlow_Supply_v1.sol  ← Smart contract
+├── scripts/
+│   └── deploy.js                 ← Deployment script
+├── hardhat.config.js            ← Hardhat configuration
+├── artifacts/                    ← Compiled contract artifacts
+├── .env                         ← Environment variables
 ├── index.html
 ├── package.json
 ├── vite.config.js
@@ -133,20 +166,22 @@ ls-agriflow/
     ├── App.jsx                    ← Router & protected routes
     ├── index.css                  ← Full design system
     ├── components/
-    │   ├── Logo.jsx               ← Mokorotlo SVG + branding constants
+    │   ├── Logo.jsx               ← Mokorotlo SVG branding
     │   ├── Layout.jsx             ← Sidebar + topbar shell
-    │   └── common.jsx             ← StatCard, Badge, ChainViewer, PassportModal
+    │   ├── WalletConnect.jsx      ← MetaMask connection UI
+    │   └── common.jsx             ← StatCard, Badge, ChainViewer
     ├── context/
-    │   └── AppContext.jsx         ← Auth, toasts, global state
+    │   └── AppContext.jsx         ← Auth, toasts, Web3 state
     ├── utils/
-    │   ├── crypto.js              ← SHA-256, transaction builder, chain verifier
+    │   ├── crypto.js              ← SHA-256, chain verifier
     │   ├── db.js                  ← localStorage abstraction
+    │   ├── web3.js                ← Web3Manager - MetaMask/Contract
     │   └── seed.js                ← Demo data seeder
     └── pages/
-        ├── Login.jsx              ← Branded login with Mokorotlo hero
+        ├── Login.jsx
         ├── farmer/
         │   ├── Dashboard.jsx
-        │   ├── RegisterBatch.jsx
+        │   ├── RegisterBatch.jsx  ← Hybrid blockchain/local
         │   ├── MyBatches.jsx
         │   └── MyListings.jsx
         ├── agent/
@@ -185,6 +220,57 @@ Each transaction:
 The Ministry **Full Ledger** page runs `verifyChain()` which re-hashes every transaction
 and confirms each `prevHash` matches its predecessor. If any record is tampered with,
 a red **"Chain Integrity: COMPROMISED"** banner appears.
+
+---
+
+## Blockchain Architecture (DApp Mode)
+
+The platform now runs as a **hybrid DApp**:
+
+- **Primary Storage**: localStorage for fast, offline access
+- **Blockchain Backup**: Sepolia testnet for immutable records  
+- **Auto-Fallback**: Uses localStorage if MetaMask not connected
+- **On-Chain Verification**: Batches registered on Ethereum with transaction hashes
+
+### MetaMask Integration Flow:
+
+1. Click **"🔗 Connect MetaMask"** in the UI
+2. Approve connection in MetaMask popup
+3. Auto-switch to Sepolia testnet (chain ID: 0xaa36a7)
+4. Register batches → Creates on-chain transactions
+5. View transaction hashes in batch details
+
+### Smart Contract Functions:
+- `registerBatch()` - Immutable batch registration
+- `verifyBatch()` - Cryptographic verification by agents
+- Role-based access control (Farmers, Agents, Buyers, Ministry)
+
+---
+
+## Web3Manager Class
+
+The `Web3Manager` class (`src/utils/web3.js`) handles all blockchain interactions:
+
+```javascript
+const web3 = new Web3Manager()
+await web3.connect()           // Connect MetaMask
+await web3.registerBatch(data) // Register on blockchain
+await web3.verifyBatch(id, grade, notes) // Verify batch
+```
+
+Key features:
+- **Environment-based config**: Uses `VITE_CONTRACT_ADDRESS` and `VITE_SEPOLIA_RPC_URL`
+- **Auto network switching**: Prompts to switch to Sepolia if on wrong network
+- **Error handling**: Validates environment variables before operations
+- **Type conversion**: Handles Solidity integer requirements for weights
+
+### WalletConnect Component
+
+UI component (`src/components/WalletConnect.jsx`) provides:
+- Connect/Disconnect MetaMask button
+- Display connected wallet address (truncated)
+- Blockchain status indicator (⛓ Blockchain / 📱 Local)
+- Integration with `AppContext` for global wallet state
 
 ---
 

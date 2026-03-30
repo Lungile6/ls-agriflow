@@ -151,4 +151,12 @@ contract LSAgriFlow_Supply_v1 {
     function addMinistryOfficer(address _officer) external onlyAdmin {
         ministryOfficers[_officer] = true;
     }
+
+    /**
+     * @dev New function to allow the frontend and tests to fetch 
+     * the entire list of transaction IDs at once.
+     */
+    function getTransactionChain() external view returns (bytes32[] memory) {
+        return transactionChain;
+    }
 }
